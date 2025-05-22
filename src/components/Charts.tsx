@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 
 interface ChartsProps {
   data: any[];
@@ -28,29 +27,36 @@ const Charts = ({ data }: ChartsProps) => {
     return athleteMatch && metricMatch;
   });
   
-  // Prepare data for bar chart
+  // Prepare data for bar chart - only include data for the selected metric
   const chartData = filteredData
-    .filter(item => item["Value"] !== undefined && item["Value"] !== "")
+    .filter(item => {
+      // Only include items with non-empty values 
+      return item["Value"] !== undefined && item["Value"] !== "";
+    })
     .map((item, index) => ({
       name: `Rep ${item["Repeat"] || index + 1}`,
       value: parseFloat(item["Value"] || "0"),
       resultName: item["Result Name"] || "",
       limb: item["Limb"] || "",
     }))
-    .sort((a, b) => parseInt(a.name.split(' ')[1]) - parseInt(b.name.split(' ')[1]));
+    .sort((a, b) => {
+      const repA = parseInt(a.name.split(' ')[1]);
+      const repB = parseInt(b.name.split(' ')[1]);
+      return repA - repB;
+    });
   
   // Calculate statistics if there's a selected metric
   const metricValues = chartData.map(item => item.value);
-  const average = metricValues.length 
+  const average = metricValues.length > 0
     ? (metricValues.reduce((sum, val) => sum + val, 0) / metricValues.length).toFixed(1) 
-    : 0;
+    : "0";
   
-  const min = metricValues.length ? Math.min(...metricValues).toFixed(1) : 0;
-  const max = metricValues.length ? Math.max(...metricValues).toFixed(1) : 0;
-  const range = metricValues.length ? `${min} - ${max}` : "N/A";
+  const min = metricValues.length > 0 ? Math.min(...metricValues).toFixed(1) : "0";
+  const max = metricValues.length > 0 ? Math.max(...metricValues).toFixed(1) : "0";
+  const range = metricValues.length > 0 ? `${min} - ${max}` : "N/A";
   
   // Calculate standard deviation if there are values
-  let sd = 0;
+  let sd = "0";
   if (metricValues.length > 0) {
     const mean = metricValues.reduce((sum, val) => sum + val, 0) / metricValues.length;
     const squareDiffs = metricValues.map(value => {
@@ -62,7 +68,7 @@ const Charts = ({ data }: ChartsProps) => {
   }
   
   // Calculate coefficient of variation (CV)
-  const cv = metricValues.length && parseFloat(average) > 0 
+  const cv = metricValues.length > 0 && parseFloat(average) > 0 
     ? ((parseFloat(sd) / parseFloat(average)) * 100).toFixed(1) 
     : "0";
 
@@ -141,8 +147,8 @@ const Charts = ({ data }: ChartsProps) => {
                 <XAxis dataKey="name" angle={-45} textAnchor="end" height={70} />
                 <YAxis />
                 <Tooltip 
-                  formatter={(value, name) => [`${value}`, selectedMetric || name]}
-                  labelFormatter={(label) => `Rep ${label.split(' ')[1]}`}
+                  formatter={(value: number) => [`${value}`, selectedMetric || "Value"]}
+                  labelFormatter={(label: string) => `Rep ${label.split(' ')[1]}`}
                 />
                 <Legend />
                 <Bar dataKey="value" fill="#82ca9d" name={selectedMetric || "Value"} />
