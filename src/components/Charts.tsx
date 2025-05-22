@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,7 +17,7 @@ const Charts = ({ data }: ChartsProps) => {
   const athletes = [...new Set(data.map(item => item["Athlete Name"]))];
   
   // Get unique result names (metrics)
-  const metrics = [...new Set(data.map(item => item["Result Name"]))];
+  const metrics = [...new Set(data.map(item => item["Result Name"]))].filter(Boolean);
   
   // Filter data for the selected athlete and metric
   const filteredData = data.filter(item => {
@@ -27,16 +26,28 @@ const Charts = ({ data }: ChartsProps) => {
     return athleteMatch && metricMatch;
   });
   
+  // For a selected metric, we need to group by Test Type and Limb to ensure correct data representation
+  const groupedMetricData = new Map();
+  
+  if (selectedMetric && selectedMetric !== "all_metrics") {
+    filteredData
+      .filter(item => item["Result Name"] === selectedMetric && item["Value"] !== undefined && item["Value"] !== "")
+      .forEach(item => {
+        const key = `${item["Test Type"]}_${item["Limb"]}_${item["Repeat"] || 0}`;
+        
+        // For each test type and limb combination, we only keep one value per rep
+        if (!groupedMetricData.has(key) || parseFloat(item["Value"]) > parseFloat(groupedMetricData.get(key)["Value"])) {
+          groupedMetricData.set(key, item);
+        }
+      });
+  }
+  
   // Prepare data for bar chart - only include data for the selected metric
-  const chartData = filteredData
-    .filter(item => {
-      // Only include items with non-empty values 
-      return item["Value"] !== undefined && item["Value"] !== "";
-    })
+  const chartData = Array.from(groupedMetricData.values())
     .map((item, index) => ({
       name: `Rep ${item["Repeat"] || index + 1}`,
       value: parseFloat(item["Value"] || "0"),
-      resultName: item["Result Name"] || "",
+      testType: item["Test Type"] || "",
       limb: item["Limb"] || "",
     }))
     .sort((a, b) => {
