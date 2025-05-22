@@ -93,7 +93,7 @@ const ResultsSummary = ({ data }: ResultsSummaryProps) => {
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="">All Test Types</SelectItem>
+                <SelectItem value="all_test_types">All Test Types</SelectItem>
                 {testTypes.map((type, index) => (
                   <SelectItem key={index} value={type}>{type}</SelectItem>
                 ))}
@@ -110,7 +110,7 @@ const ResultsSummary = ({ data }: ResultsSummaryProps) => {
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="">All Result Names</SelectItem>
+                <SelectItem value="all_result_names">All Result Names</SelectItem>
                 {resultNames.map((name, index) => (
                   <SelectItem key={index} value={name}>{name}</SelectItem>
                 ))}
@@ -127,7 +127,7 @@ const ResultsSummary = ({ data }: ResultsSummaryProps) => {
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="">All Limbs</SelectItem>
+                <SelectItem value="all_limbs">All Limbs</SelectItem>
                 {limbs.map((limb, index) => (
                   <SelectItem key={index} value={limb}>{limb}</SelectItem>
                 ))}
