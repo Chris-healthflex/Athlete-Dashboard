@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 
 interface ChartsProps {
   data: any[];
@@ -10,107 +11,150 @@ interface ChartsProps {
 
 const Charts = ({ data }: ChartsProps) => {
   const [selectedAthlete, setSelectedAthlete] = useState<string>("");
+  const [selectedMetric, setSelectedMetric] = useState<string>("");
   
   if (!data || data.length === 0) return null;
 
   // Get unique athletes
   const athletes = [...new Set(data.map(item => item["Athlete Name"]))];
   
-  // Filter data for the selected athlete
-  const filteredData = selectedAthlete 
-    ? data.filter(item => item["Athlete Name"] === selectedAthlete) 
-    : data;
+  // Get unique result names (metrics)
+  const metrics = [...new Set(data.map(item => item["Result Name"]))];
   
-  // Prepare data for progress chart (taking "Hop/Rep S" values over time)
-  const progressData = filteredData
-    .filter(item => item["Result Name"] === "Hop/Rep S")
-    .map((item, index) => ({
-      name: `Rep ${item["Repeat"] || index}`,
-      value: parseFloat(item["Value"] || "0"),
-      time: parseFloat(item["Time"] || "0")
-    }))
-    .sort((a, b) => a.time - b.time);
-  
-  // Prepare test type distribution data
-  const testTypeCounts: Record<string, number> = {};
-  filteredData.forEach(item => {
-    const testType = item["Test Type"] || "Unknown";
-    testTypeCounts[testType] = (testTypeCounts[testType] || 0) + 1;
+  // Filter data for the selected athlete and metric
+  const filteredData = data.filter(item => {
+    const athleteMatch = !selectedAthlete || selectedAthlete === "all_athletes" || item["Athlete Name"] === selectedAthlete;
+    const metricMatch = !selectedMetric || selectedMetric === "all_metrics" || item["Result Name"] === selectedMetric;
+    return athleteMatch && metricMatch;
   });
   
-  const testTypeData = Object.entries(testTypeCounts).map(([name, count]) => ({
-    name,
-    count
-  }));
+  // Prepare data for bar chart
+  const chartData = filteredData
+    .filter(item => item["Value"] !== undefined && item["Value"] !== "")
+    .map((item, index) => ({
+      name: `Rep ${item["Repeat"] || index + 1}`,
+      value: parseFloat(item["Value"] || "0"),
+      resultName: item["Result Name"] || "",
+      limb: item["Limb"] || "",
+    }))
+    .sort((a, b) => parseInt(a.name.split(' ')[1]) - parseInt(b.name.split(' ')[1]));
+  
+  // Calculate statistics if there's a selected metric
+  const metricValues = chartData.map(item => item.value);
+  const average = metricValues.length 
+    ? (metricValues.reduce((sum, val) => sum + val, 0) / metricValues.length).toFixed(1) 
+    : 0;
+  
+  const min = metricValues.length ? Math.min(...metricValues).toFixed(1) : 0;
+  const max = metricValues.length ? Math.max(...metricValues).toFixed(1) : 0;
+  const range = metricValues.length ? `${min} - ${max}` : "N/A";
+  
+  // Calculate standard deviation if there are values
+  let sd = 0;
+  if (metricValues.length > 0) {
+    const mean = metricValues.reduce((sum, val) => sum + val, 0) / metricValues.length;
+    const squareDiffs = metricValues.map(value => {
+      const diff = value - mean;
+      return diff * diff;
+    });
+    const avgSquareDiff = squareDiffs.reduce((sum, val) => sum + val, 0) / squareDiffs.length;
+    sd = Math.sqrt(avgSquareDiff).toFixed(1);
+  }
+  
+  // Calculate coefficient of variation (CV)
+  const cv = metricValues.length && parseFloat(average) > 0 
+    ? ((parseFloat(sd) / parseFloat(average)) * 100).toFixed(1) 
+    : "0";
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 flex-wrap">
         <h2 className="text-xl font-bold">Performance Analytics</h2>
-        <Select value={selectedAthlete} onValueChange={setSelectedAthlete}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filter by athlete" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="all_athletes">All Athletes</SelectItem>
-              {athletes.map((athlete, index) => (
-                <SelectItem key={index} value={athlete}>{athlete}</SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap gap-4">
+          <Select value={selectedAthlete} onValueChange={setSelectedAthlete}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filter by athlete" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="all_athletes">All Athletes</SelectItem>
+                {athletes.map((athlete, index) => (
+                  <SelectItem key={index} value={athlete}>{athlete}</SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          
+          <Select value={selectedMetric} onValueChange={setSelectedMetric}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filter by metric" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="all_metrics">All Metrics</SelectItem>
+                {metrics.map((metric, index) => (
+                  <SelectItem key={index} value={metric}>{metric}</SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Performance Progress</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            {progressData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={progressData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="value" stroke="#8884d8" activeDot={{ r: 8 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-500">
-                No performance data available
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>Test Type Distribution</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            {testTypeData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={testTypeData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="count" fill="#82ca9d" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-500">
-                No test type data available
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {selectedMetric && selectedMetric !== "all_metrics" && chartData.length > 0 && (
+        <div className="bg-white p-4 rounded-lg border mb-6">
+          <h2 className="text-xl font-bold mb-4">{selectedMetric}</h2>
+          <div className="grid grid-cols-4 gap-4 mb-4">
+            <div>
+              <p className="text-sm text-gray-500">Range</p>
+              <p className="text-lg font-medium">{range}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Average</p>
+              <p className="text-lg font-medium">{average}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">CoV</p>
+              <p className="text-lg font-medium">{cv}%</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">SD</p>
+              <p className="text-lg font-medium">{sd}</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {selectedMetric && selectedMetric !== "all_metrics" 
+              ? `${selectedMetric} by Rep` 
+              : "Metrics by Rep"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="h-[400px]">
+          {chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 70 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={70} />
+                <YAxis />
+                <Tooltip 
+                  formatter={(value, name) => [`${value}`, selectedMetric || name]}
+                  labelFormatter={(label) => `Rep ${label.split(' ')[1]}`}
+                />
+                <Legend />
+                <Bar dataKey="value" fill="#82ca9d" name={selectedMetric || "Value"} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-gray-500">
+              No data available for the selected filters
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
