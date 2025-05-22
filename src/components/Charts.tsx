@@ -53,7 +53,7 @@ const Charts = ({ data }: ChartsProps) => {
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value="">All Athletes</SelectItem>
+              <SelectItem value="all_athletes">All Athletes</SelectItem>
               {athletes.map((athlete, index) => (
                 <SelectItem key={index} value={athlete}>{athlete}</SelectItem>
               ))}
