@@ -23,8 +23,8 @@ const DataSummary = ({ data }: DataSummaryProps) => {
     ? (weights.reduce((sum, weight) => sum + weight, 0) / weights.length).toFixed(2)
     : "N/A";
   
-  // Count total trials
-  const totalTrials = new Set(data.map(item => item["Trial ID"])).size;
+  // Count total reps - number of distinct repeat values
+  const reps = new Set(data.map(item => item["Repeat"])).size;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -57,10 +57,10 @@ const DataSummary = ({ data }: DataSummaryProps) => {
       
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Total Trials</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Total Reps</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{totalTrials}</div>
+          <div className="text-2xl font-bold">{reps}</div>
         </CardContent>
       </Card>
     </div>

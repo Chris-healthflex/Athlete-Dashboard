@@ -6,6 +6,7 @@ import DataSummary from "./DataSummary";
 import Charts from "./Charts";
 import DataTable from "./DataTable";
 import AthleteProfile from "./AthleteProfile";
+import ResultsSummary from "./ResultsSummary";
 
 const Dashboard = () => {
   const [data, setData] = useState<any[]>([]);
@@ -46,6 +47,7 @@ const Dashboard = () => {
           </div>
           
           <DataSummary data={data} />
+          <ResultsSummary data={data} />
           
           <Tabs defaultValue="charts">
             <TabsList className="grid w-full grid-cols-3 max-w-md">
