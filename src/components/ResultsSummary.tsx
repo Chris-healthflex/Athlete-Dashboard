@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,14 +6,17 @@ import { ArrowUpDown, SortAsc, SortDesc } from "lucide-react";
 
 interface ResultsSummaryProps {
   data: any[];
+  onTestTypeChange?: (testType: string) => void;
+  onLimbChange?: (limb: string) => void;
 }
 
 type SortMethod = "max" | "min" | "avg";
 
-const ResultsSummary = ({ data }: ResultsSummaryProps) => {
-  const [selectedTestType, setSelectedTestType] = useState<string>("");
-  const [selectedResultName, setSelectedResultName] = useState<string>("");
-  const [selectedLimb, setSelectedLimb] = useState<string>("");
+const ResultsSummary = ({ data, onTestTypeChange, onLimbChange }: ResultsSummaryProps) => {
+  const [selectedTestType, setSelectedTestType] = useState<string>("all_test_types");
+  const [selectedResultName, setSelectedResultName] = useState<string>("all_results");
+  const [selectedLimb, setSelectedLimb] = useState<string>("all_limbs");
+  const [selectedDate, setSelectedDate] = useState<string>("all_dates");
   const [sortMethod, setSortMethod] = useState<SortMethod>("max");
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [summaryValue, setSummaryValue] = useState<string | number>("N/A");
@@ -25,7 +27,7 @@ const ResultsSummary = ({ data }: ResultsSummaryProps) => {
   // Extract unique result names based on selected test type
   const resultNames = Array.from(new Set(
     data
-      .filter(item => !selectedTestType || item["Test Type"] === selectedTestType)
+      .filter(item => selectedTestType === "all_test_types" || item["Test Type"] === selectedTestType)
       .map(item => item["Result Name"] || "")
   )).filter(Boolean);
   
@@ -33,32 +35,63 @@ const ResultsSummary = ({ data }: ResultsSummaryProps) => {
   const limbs = Array.from(new Set(
     data
       .filter(item => 
-        (!selectedTestType || item["Test Type"] === selectedTestType) && 
-        (!selectedResultName || item["Result Name"] === selectedResultName)
+        (selectedTestType === "all_test_types" || item["Test Type"] === selectedTestType) && 
+        (selectedResultName === "all_results" || item["Result Name"] === selectedResultName)
       )
       .map(item => item["Limb"] || "")
   )).filter(Boolean);
+
+  // Extract unique dates and format them
+  const dates = Array.from(new Set(
+    data.map(item => {
+      const date = new Date(item["Recorded UTC"]);
+      return date.toLocaleDateString();
+    })
+  )).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()); // Sort dates in descending order
+
+  // Handle test type change
+  const handleTestTypeChange = (value: string) => {
+    setSelectedTestType(value);
+    if (onTestTypeChange) {
+      onTestTypeChange(value === "all_test_types" ? "" : value);
+    }
+  };
+
+  // Handle limb change
+  const handleLimbChange = (value: string) => {
+    setSelectedLimb(value);
+    if (onLimbChange) {
+      onLimbChange(value === "all_limbs" ? "" : value);
+    }
+  };
 
   useEffect(() => {
     // Filter data based on selections
     let filtered = [...data];
     
-    if (selectedTestType) {
+    if (selectedTestType !== "all_test_types") {
       filtered = filtered.filter(item => item["Test Type"] === selectedTestType);
     }
     
-    if (selectedResultName) {
+    if (selectedResultName !== "all_results") {
       filtered = filtered.filter(item => item["Result Name"] === selectedResultName);
     }
     
-    if (selectedLimb) {
+    if (selectedLimb !== "all_limbs") {
       filtered = filtered.filter(item => item["Limb"] === selectedLimb);
+    }
+
+    if (selectedDate !== "all_dates") {
+      filtered = filtered.filter(item => {
+        const itemDate = new Date(item["Recorded UTC"]);
+        return itemDate.toLocaleDateString() === selectedDate;
+      });
     }
     
     setFilteredData(filtered);
     
     // Calculate summary value based on sort method
-    if (filtered.length > 0 && selectedResultName) {
+    if (filtered.length > 0 && selectedResultName !== "all_results") {
       const values = filtered
         .map(item => parseFloat(item["Value"]))
         .filter(value => !isNaN(value));
@@ -78,24 +111,24 @@ const ResultsSummary = ({ data }: ResultsSummaryProps) => {
     } else {
       setSummaryValue("N/A");
     }
-  }, [data, selectedTestType, selectedResultName, selectedLimb, sortMethod]);
+  }, [data, selectedTestType, selectedResultName, selectedLimb, selectedDate, sortMethod]);
 
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold">Results Summary</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Test Type</label>
-          <Select value={selectedTestType} onValueChange={setSelectedTestType}>
+          <Select value={selectedTestType} onValueChange={handleTestTypeChange}>
             <SelectTrigger>
               <SelectValue placeholder="Select test type" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 <SelectItem value="all_test_types">All Test Types</SelectItem>
-                {testTypes.map((type, index) => (
-                  <SelectItem key={index} value={type}>{type}</SelectItem>
+                {testTypes.map((testType, index) => (
+                  <SelectItem key={index} value={testType}>{testType}</SelectItem>
                 ))}
               </SelectGroup>
             </SelectContent>
@@ -110,9 +143,9 @@ const ResultsSummary = ({ data }: ResultsSummaryProps) => {
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="all_result_names">All Result Names</SelectItem>
-                {resultNames.map((name, index) => (
-                  <SelectItem key={index} value={name}>{name}</SelectItem>
+                <SelectItem value="all_results">All Results</SelectItem>
+                {resultNames.map((resultName, index) => (
+                  <SelectItem key={index} value={resultName}>{resultName}</SelectItem>
                 ))}
               </SelectGroup>
             </SelectContent>
@@ -121,7 +154,7 @@ const ResultsSummary = ({ data }: ResultsSummaryProps) => {
         
         <div className="space-y-2">
           <label className="text-sm font-medium">Limb</label>
-          <Select value={selectedLimb} onValueChange={setSelectedLimb}>
+          <Select value={selectedLimb} onValueChange={handleLimbChange}>
             <SelectTrigger>
               <SelectValue placeholder="Select limb" />
             </SelectTrigger>
@@ -130,6 +163,23 @@ const ResultsSummary = ({ data }: ResultsSummaryProps) => {
                 <SelectItem value="all_limbs">All Limbs</SelectItem>
                 {limbs.map((limb, index) => (
                   <SelectItem key={index} value={limb}>{limb}</SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Date</label>
+          <Select value={selectedDate} onValueChange={setSelectedDate}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select date" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="all_dates">All Dates</SelectItem>
+                {dates.map((date, index) => (
+                  <SelectItem key={index} value={date}>{date}</SelectItem>
                 ))}
               </SelectGroup>
             </SelectContent>
@@ -156,13 +206,13 @@ const ResultsSummary = ({ data }: ResultsSummaryProps) => {
           </ToggleGroup>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Result Name</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold">{selectedResultName || "All"}</div>
+              <div className="text-xl font-bold">{selectedResultName === "all_results" ? "All" : selectedResultName}</div>
             </CardContent>
           </Card>
           
@@ -182,7 +232,7 @@ const ResultsSummary = ({ data }: ResultsSummaryProps) => {
               <CardTitle className="text-sm font-medium text-muted-foreground">Limb</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold">{selectedLimb || "All"}</div>
+              <div className="text-xl font-bold">{selectedLimb === "all_limbs" ? "All" : selectedLimb}</div>
             </CardContent>
           </Card>
         </div>

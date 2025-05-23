@@ -5,11 +5,13 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 
 interface ChartsProps {
   data: any[];
+  selectedTestType?: string;
+  selectedLimb?: string;
 }
 
-const Charts = ({ data }: ChartsProps) => {
-  const [selectedAthlete, setSelectedAthlete] = useState<string>("");
-  const [selectedMetric, setSelectedMetric] = useState<string>("");
+const Charts = ({ data, selectedTestType, selectedLimb }: ChartsProps) => {
+  const [selectedAthlete, setSelectedAthlete] = useState<string>("all_athletes");
+  const [selectedMetric, setSelectedMetric] = useState<string>("all_metrics");
   
   if (!data || data.length === 0) return null;
 
@@ -19,17 +21,19 @@ const Charts = ({ data }: ChartsProps) => {
   // Get unique result names (metrics)
   const metrics = [...new Set(data.map(item => item["Result Name"]))].filter(Boolean);
   
-  // Filter data for the selected athlete and metric
+  // Filter data for the selected athlete, metric, test type, and limb
   const filteredData = data.filter(item => {
-    const athleteMatch = !selectedAthlete || selectedAthlete === "all_athletes" || item["Athlete Name"] === selectedAthlete;
-    const metricMatch = !selectedMetric || selectedMetric === "all_metrics" || item["Result Name"] === selectedMetric;
-    return athleteMatch && metricMatch;
+    const athleteMatch = selectedAthlete === "all_athletes" || item["Athlete Name"] === selectedAthlete;
+    const metricMatch = selectedMetric === "all_metrics" || item["Result Name"] === selectedMetric;
+    const testTypeMatch = !selectedTestType || item["Test Type"] === selectedTestType;
+    const limbMatch = !selectedLimb || item["Limb"] === selectedLimb;
+    return athleteMatch && metricMatch && testTypeMatch && limbMatch;
   });
   
   // For a selected metric, we need to group by Test Type and Limb to ensure correct data representation
   const groupedMetricData = new Map();
   
-  if (selectedMetric && selectedMetric !== "all_metrics") {
+  if (selectedMetric !== "all_metrics") {
     filteredData
       .filter(item => item["Result Name"] === selectedMetric && item["Value"] !== undefined && item["Value"] !== "")
       .forEach(item => {
@@ -118,7 +122,7 @@ const Charts = ({ data }: ChartsProps) => {
         </div>
       </div>
       
-      {selectedMetric && selectedMetric !== "all_metrics" && chartData.length > 0 && (
+      {selectedMetric !== "all_metrics" && (
         <div className="bg-white p-4 rounded-lg border mb-6">
           <h2 className="text-xl font-bold mb-4">{selectedMetric}</h2>
           <div className="grid grid-cols-4 gap-4 mb-4">
@@ -145,7 +149,7 @@ const Charts = ({ data }: ChartsProps) => {
       <Card>
         <CardHeader>
           <CardTitle>
-            {selectedMetric && selectedMetric !== "all_metrics" 
+            {selectedMetric !== "all_metrics"
               ? `${selectedMetric} by Rep` 
               : "Metrics by Rep"}
           </CardTitle>

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload } from "lucide-react";
@@ -13,41 +12,104 @@ const FileUpload = ({ onFileLoaded }: FileUploadProps) => {
   const { toast } = useToast();
 
   const handleParse = (file: File) => {
+    console.log("Starting to parse file:", file.name);
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const text = e.target?.result;
-        if (typeof text !== "string") return;
+        console.log("File content loaded, first 100 chars:", typeof text, text?.toString().substring(0, 100));
         
-        // Parse CSV
-        const headers = text.slice(0, text.indexOf('\n')).split(',');
-        const rows = text.slice(text.indexOf('\n') + 1).split('\n');
+        if (typeof text !== "string") {
+          throw new Error("Invalid file content");
+        }
         
-        const parsedData = rows
-          .filter(row => row.trim() !== '')
-          .map(row => {
-            const values = row.split(',');
-            return headers.reduce((obj, header, i) => {
-              obj[header.trim()] = values[i]?.trim() || '';
-              return obj;
-            }, {} as Record<string, string>);
-          });
+        // Split the text into lines and filter out empty lines
+        const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+        console.log("Number of lines after filtering:", lines.length);
+        console.log("First line (headers):", lines[0]);
         
-        onFileLoaded(parsedData);
+        if (lines.length < 2) {
+          throw new Error("File must contain headers and at least one row of data");
+        }
+
+        // Parse headers (first line)
+        const headers = lines[0].split(',').map(header => header.trim());
+        console.log("Parsed headers:", headers);
+        
+        // Parse data rows
+        const parsedData = lines.slice(1).map((row, index) => {
+          const values = row.split(',').map(value => value.trim());
+          console.log(`Row ${index + 1} values:`, values);
+          
+          // Ensure we have the correct number of values
+          if (values.length !== headers.length) {
+            console.warn(`Row ${index + 1} has ${values.length} values but expected ${headers.length}. Row: ${row}`);
+            // Pad or truncate the values array to match headers length
+            while (values.length < headers.length) values.push('');
+            values.length = headers.length;
+          }
+          
+          const rowObj = headers.reduce((obj, header, i) => {
+            obj[header] = values[i] || '';
+            return obj;
+          }, {} as Record<string, string>);
+          
+          console.log(`Row ${index + 1} parsed object:`, rowObj);
+          return rowObj;
+        });
+
+        // Validate required columns
+        const requiredColumns = ['Test Type', 'Limb', 'Result Name', 'Value', 'Repeat'];
+        const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+        console.log("Missing required columns:", missingColumns);
+        
+        if (missingColumns.length > 0) {
+          throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
+        }
+
+        // Validate data types
+        const validData = parsedData.filter((row, index) => {
+          const value = parseFloat(row['Value']);
+          const isValid = !isNaN(value);
+          if (!isValid) {
+            console.warn(`Row ${index + 1} has invalid Value:`, row['Value']);
+          }
+          return isValid;
+        });
+
+        console.log("Number of valid rows:", validData.length);
+        console.log("First valid row example:", validData[0]);
+
+        if (validData.length === 0) {
+          throw new Error("No valid data rows found");
+        }
+
+        console.log("Calling onFileLoaded with valid data");
+        onFileLoaded(validData);
         
         toast({
           title: "File uploaded successfully",
-          description: `Loaded ${parsedData.length} records from the CSV file.`
+          description: `Loaded ${validData.length} records from the CSV file.`
         });
       } catch (error) {
         console.error("Error parsing CSV:", error);
         toast({
           title: "Error parsing file",
-          description: "The file format is incorrect or the file is corrupted.",
+          description: error instanceof Error ? error.message : "The file format is incorrect or the file is corrupted.",
           variant: "destructive"
         });
       }
     };
+
+    reader.onerror = (error) => {
+      console.error("FileReader error:", error);
+      toast({
+        title: "Error reading file",
+        description: "Failed to read the file. Please try again.",
+        variant: "destructive"
+      });
+    };
+
     reader.readAsText(file);
   };
 
