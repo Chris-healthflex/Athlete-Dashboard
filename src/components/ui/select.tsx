@@ -144,6 +144,76 @@ const SelectSeparator = React.forwardRef<
 ))
 SelectSeparator.displayName = SelectPrimitive.Separator.displayName
 
+// Add a new MultiSelect component
+interface MultiSelectProps {
+  value: string[];
+  onValueChange: (value: string[]) => void;
+  children: React.ReactNode;
+  placeholder?: string;
+  className?: string;
+}
+
+const MultiSelect = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Root>,
+  MultiSelectProps
+>(({ value, onValueChange, children, placeholder, className }, ref) => {
+  const handleValueChange = (newValue: string) => {
+    if (newValue === "all_dates") {
+      onValueChange([]);
+    } else if (newValue === "select_all") {
+      // Extract all date values from children
+      const allDates = React.Children.toArray(children)
+        .filter(child => React.isValidElement(child) && child.props.value !== "all_dates" && child.props.value !== "select_all")
+        .map(child => (React.isValidElement(child) ? child.props.value : ""));
+      onValueChange(allDates);
+    } else {
+      const currentValue = value || [];
+      const newValues = currentValue.includes(newValue)
+        ? currentValue.filter(v => v !== newValue)
+        : [...currentValue, newValue];
+      onValueChange(newValues);
+    }
+  };
+
+  const displayValue = () => {
+    if (value.length === 0) return "All Dates";
+    if (value.length === 1) return value[0];
+    return `${value.length} dates selected`;
+  };
+
+  return (
+    <Select value={value.length > 0 ? value[0] : "all_dates"} onValueChange={handleValueChange}>
+      <SelectTrigger className={className}>
+        <SelectValue placeholder={placeholder}>
+          {displayValue()}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          <SelectItem value="all_dates">All Dates</SelectItem>
+          <SelectItem value="select_all">Select All Dates</SelectItem>
+          {React.Children.map(children, child => {
+            if (!React.isValidElement(child)) return null;
+            if (child.type === SelectGroup) {
+              return React.Children.map(child.props.children, groupChild => {
+                if (!React.isValidElement(groupChild)) return null;
+                if (groupChild.type === SelectItem) {
+                  return React.cloneElement(groupChild, {
+                    className: value.includes(groupChild.props.value) ? "bg-accent" : undefined
+                  });
+                }
+                return groupChild;
+              });
+            }
+            return child;
+          })}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
+  );
+});
+MultiSelect.displayName = "MultiSelect";
+
 export {
   Select,
   SelectGroup,
@@ -155,4 +225,5 @@ export {
   SelectSeparator,
   SelectScrollUpButton,
   SelectScrollDownButton,
+  MultiSelect
 }

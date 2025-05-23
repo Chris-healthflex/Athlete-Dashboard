@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, MultiSelect } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ArrowUpDown, SortAsc, SortDesc } from "lucide-react";
 
@@ -8,18 +8,37 @@ interface ResultsSummaryProps {
   data: any[];
   onTestTypeChange?: (testType: string) => void;
   onLimbChange?: (limb: string) => void;
+  onDatesChange?: (dates: string[]) => void;
 }
 
 type SortMethod = "max" | "min" | "avg";
 
-const ResultsSummary = ({ data, onTestTypeChange, onLimbChange }: ResultsSummaryProps) => {
+const ResultsSummary = ({ data, onTestTypeChange, onLimbChange, onDatesChange }: ResultsSummaryProps) => {
   const [selectedTestType, setSelectedTestType] = useState<string>("all_test_types");
   const [selectedResultName, setSelectedResultName] = useState<string>("all_results");
   const [selectedLimb, setSelectedLimb] = useState<string>("all_limbs");
-  const [selectedDate, setSelectedDate] = useState<string>("all_dates");
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [sortMethod, setSortMethod] = useState<SortMethod>("max");
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [summaryValue, setSummaryValue] = useState<string | number>("N/A");
+  const [previousAthlete, setPreviousAthlete] = useState<string>("");
+
+  // Get the current athlete name from the first data item
+  const currentAthlete = data[0]?.["Athlete Name"] || "";
+
+  // Reset filters only when athlete changes
+  useEffect(() => {
+    if (previousAthlete && previousAthlete !== currentAthlete) {
+      setSelectedTestType("all_test_types");
+      setSelectedResultName("all_results");
+      setSelectedLimb("all_limbs");
+      setSelectedDates([]);
+      if (onDatesChange) {
+        onDatesChange([]);
+      }
+    }
+    setPreviousAthlete(currentAthlete);
+  }, [currentAthlete, previousAthlete, onDatesChange]);
 
   // Extract unique test types
   const testTypes = Array.from(new Set(data.map(item => item["Test Type"] || ""))).filter(Boolean);
@@ -81,10 +100,10 @@ const ResultsSummary = ({ data, onTestTypeChange, onLimbChange }: ResultsSummary
       filtered = filtered.filter(item => item["Limb"] === selectedLimb);
     }
 
-    if (selectedDate !== "all_dates") {
+    if (selectedDates.length > 0) {
       filtered = filtered.filter(item => {
         const itemDate = new Date(item["Recorded UTC"]);
-        return itemDate.toLocaleDateString() === selectedDate;
+        return selectedDates.includes(itemDate.toLocaleDateString());
       });
     }
     
@@ -111,7 +130,7 @@ const ResultsSummary = ({ data, onTestTypeChange, onLimbChange }: ResultsSummary
     } else {
       setSummaryValue("N/A");
     }
-  }, [data, selectedTestType, selectedResultName, selectedLimb, selectedDate, sortMethod]);
+  }, [data, selectedTestType, selectedResultName, selectedLimb, selectedDates, sortMethod]);
 
   return (
     <div className="space-y-6">
@@ -171,15 +190,43 @@ const ResultsSummary = ({ data, onTestTypeChange, onLimbChange }: ResultsSummary
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Date</label>
-          <Select value={selectedDate} onValueChange={setSelectedDate}>
+          <Select 
+            value={selectedDates.length > 0 ? selectedDates[selectedDates.length - 1] : "all_dates"}
+            onValueChange={(value) => {
+              if (value === "all_dates") {
+                setSelectedDates([]);
+                if (onDatesChange) {
+                  onDatesChange([]);
+                }
+              } else {
+                const newDates = selectedDates.includes(value)
+                  ? selectedDates.filter(d => d !== value)
+                  : [...selectedDates, value];
+                setSelectedDates(newDates);
+                if (onDatesChange) {
+                  onDatesChange(newDates);
+                }
+              }
+            }}
+          >
             <SelectTrigger>
-              <SelectValue placeholder="Select date" />
+              <SelectValue placeholder="Select dates">
+                {selectedDates.length === 0 
+                  ? "All Dates" 
+                  : `${selectedDates.length} date${selectedDates.length > 1 ? 's' : ''} selected`}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 <SelectItem value="all_dates">All Dates</SelectItem>
                 {dates.map((date, index) => (
-                  <SelectItem key={index} value={date}>{date}</SelectItem>
+                  <SelectItem 
+                    key={index} 
+                    value={date}
+                    className={selectedDates.includes(date) ? "bg-accent" : undefined}
+                  >
+                    {date}
+                  </SelectItem>
                 ))}
               </SelectGroup>
             </SelectContent>

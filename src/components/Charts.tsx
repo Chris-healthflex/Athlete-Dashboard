@@ -2,14 +2,16 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface ChartsProps {
   data: any[];
   selectedTestType?: string;
   selectedLimb?: string;
+  selectedDates?: string[];
 }
 
-const Charts = ({ data, selectedTestType, selectedLimb }: ChartsProps) => {
+const Charts = ({ data, selectedTestType, selectedLimb, selectedDates = [] }: ChartsProps) => {
   const [selectedAthlete, setSelectedAthlete] = useState<string>("all_athletes");
   const [selectedMetric, setSelectedMetric] = useState<string>("all_metrics");
   
@@ -21,71 +23,68 @@ const Charts = ({ data, selectedTestType, selectedLimb }: ChartsProps) => {
   // Get unique result names (metrics)
   const metrics = [...new Set(data.map(item => item["Result Name"]))].filter(Boolean);
   
-  // Filter data for the selected athlete, metric, test type, and limb
+  // Filter data for the selected athlete, metric, test type, limb, and dates
   const filteredData = data.filter(item => {
     const athleteMatch = selectedAthlete === "all_athletes" || item["Athlete Name"] === selectedAthlete;
     const metricMatch = selectedMetric === "all_metrics" || item["Result Name"] === selectedMetric;
     const testTypeMatch = !selectedTestType || item["Test Type"] === selectedTestType;
     const limbMatch = !selectedLimb || item["Limb"] === selectedLimb;
-    return athleteMatch && metricMatch && testTypeMatch && limbMatch;
+    const dateMatch = selectedDates.length === 0 || selectedDates.includes(new Date(item["Recorded UTC"]).toLocaleDateString());
+    return athleteMatch && metricMatch && testTypeMatch && limbMatch && dateMatch;
   });
-  
-  // For a selected metric, we need to group by Test Type and Limb to ensure correct data representation
-  const groupedMetricData = new Map();
-  
-  if (selectedMetric !== "all_metrics") {
-    filteredData
-      .filter(item => item["Result Name"] === selectedMetric && item["Value"] !== undefined && item["Value"] !== "")
-      .forEach(item => {
-        const key = `${item["Test Type"]}_${item["Limb"]}_${item["Repeat"] || 0}`;
-        
-        // For each test type and limb combination, we only keep one value per rep
-        if (!groupedMetricData.has(key) || parseFloat(item["Value"]) > parseFloat(groupedMetricData.get(key)["Value"])) {
-          groupedMetricData.set(key, item);
-        }
-      });
-  }
-  
-  // Prepare data for bar chart - only include data for the selected metric
-  const chartData = Array.from(groupedMetricData.values())
-    .map((item, index) => ({
-      name: `Rep ${item["Repeat"] || index + 1}`,
+
+  // Get all unique dates from the filtered data
+  const uniqueDates = [...new Set(filteredData
+    .filter(item => item["Result Name"] === selectedMetric)
+    .map(item => new Date(item["Recorded UTC"]).toLocaleDateString())
+  )].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
+  // Prepare aggregate data by date - ensure we process all dates
+  const aggregateData = uniqueDates.map(date => {
+    const dateValues = filteredData
+      .filter(item => 
+        new Date(item["Recorded UTC"]).toLocaleDateString() === date &&
+        item["Result Name"] === selectedMetric &&
+        item["Value"] !== undefined &&
+        item["Value"] !== ""
+      )
+      .map(item => parseFloat(item["Value"]));
+
+    if (dateValues.length === 0) return null;
+
+    return {
+      date,
+      values: dateValues,
+      average: (dateValues.reduce((a, b) => a + b, 0) / dateValues.length).toFixed(1),
+      maximum: Math.max(...dateValues).toFixed(1),
+      minimum: Math.min(...dateValues).toFixed(1)
+    };
+  }).filter(Boolean);
+
+  // Prepare data for the first chart (individual reps)
+  const chartData = filteredData
+    .filter(item => 
+      item["Result Name"] === selectedMetric && 
+      item["Value"] !== undefined && 
+      item["Value"] !== ""
+    )
+    .map(item => ({
+      name: `${new Date(item["Recorded UTC"]).toLocaleDateString()} - Rep ${item["Repeat"] || 1}`,
       value: parseFloat(item["Value"] || "0"),
       testType: item["Test Type"] || "",
       limb: item["Limb"] || "",
+      date: new Date(item["Recorded UTC"]).toLocaleDateString(),
     }))
     .sort((a, b) => {
-      const repA = parseInt(a.name.split(' ')[1]);
-      const repB = parseInt(b.name.split(' ')[1]);
+      // First sort by date
+      const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime();
+      if (dateCompare !== 0) return dateCompare;
+      
+      // Then sort by rep number
+      const repA = parseInt(a.name.split('Rep ')[1]);
+      const repB = parseInt(b.name.split('Rep ')[1]);
       return repA - repB;
     });
-  
-  // Calculate statistics if there's a selected metric
-  const metricValues = chartData.map(item => item.value);
-  const average = metricValues.length > 0
-    ? (metricValues.reduce((sum, val) => sum + val, 0) / metricValues.length).toFixed(1) 
-    : "0";
-  
-  const min = metricValues.length > 0 ? Math.min(...metricValues).toFixed(1) : "0";
-  const max = metricValues.length > 0 ? Math.max(...metricValues).toFixed(1) : "0";
-  const range = metricValues.length > 0 ? `${min} - ${max}` : "N/A";
-  
-  // Calculate standard deviation if there are values
-  let sd = "0";
-  if (metricValues.length > 0) {
-    const mean = metricValues.reduce((sum, val) => sum + val, 0) / metricValues.length;
-    const squareDiffs = metricValues.map(value => {
-      const diff = value - mean;
-      return diff * diff;
-    });
-    const avgSquareDiff = squareDiffs.reduce((sum, val) => sum + val, 0) / squareDiffs.length;
-    sd = Math.sqrt(avgSquareDiff).toFixed(1);
-  }
-  
-  // Calculate coefficient of variation (CV)
-  const cv = metricValues.length > 0 && parseFloat(average) > 0 
-    ? ((parseFloat(sd) / parseFloat(average)) * 100).toFixed(1) 
-    : "0";
 
   return (
     <div className="space-y-6">
@@ -122,25 +121,46 @@ const Charts = ({ data, selectedTestType, selectedLimb }: ChartsProps) => {
         </div>
       </div>
       
-      {selectedMetric !== "all_metrics" && (
+      {selectedMetric !== "all_metrics" && aggregateData.length > 0 && (
         <div className="bg-white p-4 rounded-lg border mb-6">
           <h2 className="text-xl font-bold mb-4">{selectedMetric}</h2>
           <div className="grid grid-cols-4 gap-4 mb-4">
             <div>
               <p className="text-sm text-gray-500">Range</p>
-              <p className="text-lg font-medium">{range}</p>
+              <p className="text-lg font-medium">{`${aggregateData[0].minimum} - ${aggregateData[0].maximum}`}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Average</p>
-              <p className="text-lg font-medium">{average}</p>
+              <p className="text-lg font-medium">{aggregateData[0].average}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">CoV</p>
-              <p className="text-lg font-medium">{cv}%</p>
+              <p className="text-lg font-medium">
+                {String(
+                  ((Math.sqrt(
+                    aggregateData[0].values.reduce(
+                      (sum: number, val: number) => 
+                        sum + Math.pow(val - Number(aggregateData[0].average), 2),
+                      0
+                    ) / aggregateData[0].values.length
+                  ) / Number(aggregateData[0].average)) * 100
+                ).toFixed(1)
+                )}%
+              </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">SD</p>
-              <p className="text-lg font-medium">{sd}</p>
+              <p className="text-lg font-medium">
+                {String(
+                  Math.sqrt(
+                    aggregateData[0].values.reduce(
+                      (sum: number, val: number) => 
+                        sum + Math.pow(val - Number(aggregateData[0].average), 2),
+                      0
+                    ) / aggregateData[0].values.length
+                  ).toFixed(1)
+                )}
+              </p>
             </div>
           </div>
         </div>
@@ -176,6 +196,97 @@ const Charts = ({ data, selectedTestType, selectedLimb }: ChartsProps) => {
           )}
         </CardContent>
       </Card>
+      
+      {selectedMetric !== "all_metrics" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {`${selectedMetric} Statistics by Date`}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="h-[400px]">
+            {aggregateData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={aggregateData} margin={{ top: 20, right: 30, left: 20, bottom: 70 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="date" 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={70}
+                  />
+                  <YAxis />
+                  <Tooltip 
+                    formatter={(value: number) => [`${value}`, selectedMetric || "Value"]}
+                  />
+                  <Legend />
+                  <Bar dataKey="maximum" fill="#82ca9d" name="Maximum" />
+                  <Bar dataKey="average" fill="#8884d8" name="Average" />
+                  <Bar dataKey="minimum" fill="#ffc658" name="Minimum" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-500">
+                No data available for the selected filters
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedMetric !== "all_metrics" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Detailed Statistics</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Maximum</TableHead>
+                    <TableHead>Minimum</TableHead>
+                    <TableHead>Average</TableHead>
+                    <TableHead>Range</TableHead>
+                    <TableHead># of Reps</TableHead>
+                    <TableHead>Standard Deviation</TableHead>
+                    <TableHead>CoV (%)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {aggregateData.map((dateStats) => {
+                    // Calculate standard deviation
+                    const mean = parseFloat(dateStats.average);
+                    const squareDiffs = dateStats.values.map(value => {
+                      const diff = value - mean;
+                      return diff * diff;
+                    });
+                    const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / squareDiffs.length;
+                    const stdDev = Math.sqrt(avgSquareDiff).toFixed(1);
+                    
+                    // Calculate CoV
+                    const cov = ((parseFloat(stdDev) / mean) * 100).toFixed(1);
+
+                    return (
+                      <TableRow key={dateStats.date}>
+                        <TableCell>{dateStats.date}</TableCell>
+                        <TableCell>{dateStats.maximum}</TableCell>
+                        <TableCell>{dateStats.minimum}</TableCell>
+                        <TableCell>{dateStats.average}</TableCell>
+                        <TableCell>{`${dateStats.minimum} - ${dateStats.maximum}`}</TableCell>
+                        <TableCell>{dateStats.values.length}</TableCell>
+                        <TableCell>{stdDev}</TableCell>
+                        <TableCell>{cov}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

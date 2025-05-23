@@ -16,7 +16,16 @@ const Dashboard = () => {
   const [selectedTestType, setSelectedTestType] = useState<string>("");
   const [selectedLimb, setSelectedLimb] = useState<string>("");
   const [selectedAthlete, setSelectedAthlete] = useState<string>("all_athletes");
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const { toast } = useToast();
+
+  // Handle athlete change
+  const handleAthleteChange = (value: string) => {
+    setSelectedAthlete(value);
+    setSelectedDates([]); // Clear dates
+    setSelectedTestType(""); // Reset test type
+    setSelectedLimb(""); // Reset limb
+  };
 
   const handleFileLoaded = (parsedData: any[]) => {
     console.log("Received data:", parsedData);
@@ -84,7 +93,7 @@ const Dashboard = () => {
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold">Data Overview</h2>
             <div className="flex items-center gap-4">
-              <Select value={selectedAthlete} onValueChange={setSelectedAthlete}>
+              <Select value={selectedAthlete} onValueChange={handleAthleteChange}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Select athlete" />
                 </SelectTrigger>
@@ -105,6 +114,7 @@ const Dashboard = () => {
                   setSelectedTestType("");
                   setSelectedLimb("");
                   setSelectedAthlete("all_athletes");
+                  setSelectedDates([]);
                 }}
               >
                 Upload Different Files
@@ -135,6 +145,7 @@ const Dashboard = () => {
                       data={filteredData} 
                       onTestTypeChange={setSelectedTestType}
                       onLimbChange={setSelectedLimb}
+                      onDatesChange={setSelectedDates}
                     />
                   </ErrorBoundary>
                   
@@ -149,6 +160,7 @@ const Dashboard = () => {
                           data={filteredData} 
                           selectedTestType={selectedTestType}
                           selectedLimb={selectedLimb}
+                          selectedDates={selectedDates}
                         />
                       </ErrorBoundary>
                     </TabsContent>
