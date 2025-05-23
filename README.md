@@ -1,73 +1,63 @@
-# Welcome to your Lovable project
+# Athlete Dashboard
 
-## Project info
+A React-based dashboard for visualizing and analyzing CSV data with a focus on athlete performance metrics.
 
-**URL**: https://lovable.dev/projects/b1cdf170-86ad-47c9-a077-fe234b5e9d01
+## Features
 
-## How can I edit this code?
+- CSV file and folder upload support
+- Interactive data visualization with charts
+- Filtering by athlete, test type, limb, and date
+- Statistical analysis (max, min, average)
+- Responsive design
+- Real-time data updates
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+- React
+- TypeScript
+- Tailwind CSS
+- shadcn/ui components
+- Recharts for data visualization
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/b1cdf170-86ad-47c9-a077-fe234b5e9d01) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+1. Clone the repository:
+```bash
+git clone https://github.com/Chris-healthflex/Athelete-Dashboard.git
+cd Athelete-Dashboard
+```
 
-**Use your preferred IDE**
+2. Install dependencies:
+```bash
+npm install
+```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+3. Start the development server:
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+4. Open [http://localhost:5173](http://localhost:5173) to view it in your browser.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Usage
 
-**Use GitHub Codespaces**
+1. Upload your CSV file(s) using either the single file upload or folder upload option
+2. Select an athlete from the dropdown to view their data
+3. Use the filters to analyze specific test types, limbs, and dates
+4. View the data visualization in the charts tab
+5. Access raw data in the data table view
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## CSV Format Requirements
 
-## What technologies are used for this project?
+The CSV files should include the following columns:
+- Athlete Name
+- Test Type
+- Limb
+- Result Name
+- Value
+- Repeat
+- Recorded UTC
 
-This project is built with:
+## License
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/b1cdf170-86ad-47c9-a077-fe234b5e9d01) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+MIT
